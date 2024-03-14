@@ -592,32 +592,34 @@ def checkOvertimeReceiptFile():
             for a in b:
                 if a.replace('未開獎', '').find(f) >= 0:
                     ctypes.windll.user32.MessageBoxW(0, '您之前所輸入的發票號碼，' + f.replace('.txt', '') + '已開獎，請盡快對獎', '發票已開獎', 0)
-def updateReceiptFile():
+def updateReceiptFile(url, receiptMon):
+    r = requests.get(url=url)
+    r.encoding = 'utf-8'
+    soup = BeautifulSoup(r.text,'html.parser')
+    sel = soup.select('span.font-weight-bold')
+    with open('{0}.txt'.format(receiptMon), 'a') as file1:
+        for i in range(0, len(sel)//2):
+            if len(sel[i].text) == 5:
+                winReceipt = sel[i].text + sel[i+1].text
+                file1.writelines('{0}\n'.format(winReceipt))
+            elif len(sel[i].text) == 8:
+                winReceipt = sel[i].text
+                file1.writelines('{0}\n'.format(winReceipt))
+    file1.close()
+def updateReceipt():
     try:
-        r = requests.get('http://invoice.etax.nat.gov.tw/')
+        r = requests.get(url="https://invoice.etax.nat.gov.tw/index.html")
         r.encoding = 'utf-8'
         soup = BeautifulSoup(r.text,'html.parser')
-        sel = soup.select('span.t18Red'); mon = soup.select('h2')
-        receiptMon = mon[1].text; receiptMon1 = mon[3].text
-        q = False; a = True
+        mon = soup.select(".carousel-item")
+        receiptMon = (mon[0].text).replace('中獎號碼單', '')
+        receiptMon1 = (mon[2].text).replace('中獎號碼單', '')
         if not(os.path.isfile('{0}.txt'.format(receiptMon))):
-            for receiptSel in sel:
-                receiptText = receiptSel.text
-                for winReceipt in receiptText.split('、'):
-                    if len(winReceipt) == 3:
-                        q = True
-                    if q and len(winReceipt) == 8:
-                        q = False
-                        if os.path.isfile('{0}.txt'.format(receiptMon1)):
-                            a = False 
-                        else:
-                            receiptMon = receiptMon1
-                    if a:
-                        fileType = 'a' if os.path.isfile('{0}.txt'.format(receiptMon)) else 'x'
-                        with open('{0}.txt'.format(receiptMon), fileType) as file1:
-                            file1.writelines('{0}\n'.format(winReceipt))
+            updateReceiptFile("https://invoice.etax.nat.gov.tw/index.html", receiptMon)
+        if not(os.path.isfile('{0}.txt'.format(receiptMon1))):
+            updateReceiptFile("https://invoice.etax.nat.gov.tw/lastNumber.html", receiptMon1)
     except:
         ctypes.windll.user32.MessageBoxW(0, '目前無網際網路，無法更新檔案!', '無法更新', 0)
-updateReceiptFile()
+updateReceipt()
 checkOvertimeReceiptFile()
 mainList()
