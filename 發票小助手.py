@@ -296,8 +296,8 @@ def secList(GUI):
         mainList()
     def confirmRecipt(event):
         s = True
-        a = 'a' if os.path.isfile('{0}未開獎.txt'.format(fileName)) else 'x+'
-        with open('{0}未開獎.txt'.format(fileName), a) as file1:
+        a = 'a' if os.path.isfile('{0}未開獎.txt'.format(fileName[0])) else 'x+'
+        with open('{0}未開獎.txt'.format(fileName[0]), a) as file1:
             if checkReceipt(entry.get()):
                 s = False
                 file1.write('{0}\n'.format(entry.get()))
@@ -307,8 +307,10 @@ def secList(GUI):
             if layout[1] % 20 == 0: layout[2] += 500; canvas.config(scrollregion = (0, 0, 0, layout[2]))
             layout[0] += 25; layout[1] += 1
         if s and a == 'x+':
-            os.remove('{0}未開獎.txt'.format(fileName))
+            os.remove('{0}未開獎.txt'.format(fileName[0]))
         entry.delete(0, 'end')
+    def changeMon(event):
+        fileName[0] = combox.get()
     GUI.destroy()
     layout = [5, 1, 500]
     secList = tkinter.Tk()
@@ -316,9 +318,34 @@ def secList(GUI):
     center_window(secList, 400, 400)
     secList.resizable(width=False, height=False)
     secList.after(1, lambda: secList.focus_force())
-    fileName = getReceiptMon()
-    label1 = tkinter.Label(secList, text = fileName, font = 30)
-    label1.place(x = 5, y = 10)
+    fileName = [getReceiptMon()]
+    
+    localtime = time.localtime(time.time())
+    year = localtime.tm_year - 1911; mon = localtime.tm_mon; day = localtime.tm_mday
+    if mon % 2 == 1 and day >= 6 and day <= 25:
+        if mon - 2 <= 0:
+            year = year - 1
+            mon1 = 11; mon2 = 12;
+        else:
+            mon1 = mon - 2; mon2 = mon - 1;
+        receiptMon = '%d年%02d-%02d月' % (year, mon1, mon2)
+        if not(os.path.isfile('{0}.txt'.format(receiptMon))):
+            comvalue = tkinter.StringVar()
+            combox = ttk.Combobox(secList, textvariable = comvalue, font = 30, state = 'readonly')
+            comboxOption = []
+            comboxOption.append(receiptMon)
+            comboxOption.append(fileName[0])
+            combox["values"] = tuple(comboxOption)
+            combox.current(0) if len(comboxOption) == 1 else combox.current(1)
+            combox.bind("<<ComboboxSelected>>", changeMon)
+            combox.place(x = 5, y = 10)
+        else:
+            label1 = tkinter.Label(secList, text = fileName[0], font = 30)
+            label1.place(x = 5, y = 10)
+    else:
+        label1 = tkinter.Label(secList, text = fileName[0], font = 30)
+        label1.place(x = 5, y = 10)
+    
     label2 = tkinter.Label(secList, text = '請輸入您的發票號碼：', font = 30)
     label2.place(x = 5, y = 50)
     entry = tkinter.Entry(secList, font = 30)
@@ -553,27 +580,28 @@ def mainList():
     button5.place(x = 5, y = 210)
     GUI.protocol('WM_DELETE_WINDOW', end)
     GUI.mainloop()
-def receiptFile(num0, num1, f):
+def receiptFile(num0, num1):
     localtime = time.localtime(time.time())
     year = localtime.tm_year - 1911; mon = localtime.tm_mon; day = localtime.tm_mday
     if num1 == "01":
         if not(((mon == 7 and day <= 5) or mon < 7) and year == num0):
-            os.remove(f); return True
+            return True
     elif num1 == "03":
         if not(((mon == 9 and day <= 5) or mon < 9) and year == num0):
-            os.remove(f); return True
+            return True
     elif num1 == "05":
         if not(((mon == 11 and day <= 5) or mon < 11) and year == num0):
-            os.remove(f); return True
+            return True
     elif num1 == "07":
         if not((mon == 10 and day >= 6 or mon > 10 and year == num0) or (mon == 1 and day <= 5 and year == num0 + 1)):
-            os.remove(f); return True
+            return True
     elif num1 == "09":
         if not((mon == 12 and day >= 6 and year == num0) or (mon == 3 and day <= 5 or mon < 3 and year == num0 + 1)):
-            os.remove(f); return True
+            return True
     elif num1 == "11":
         if not(((mon == 5 and day <= 5) or mon < 5) and year == num0 + 1):
-            os.remove(f); return True
+            return True
+    return False
 def checkOvertimeReceiptFile():
     files = os.listdir("./")
     for f in files:
@@ -581,7 +609,8 @@ def checkOvertimeReceiptFile():
         if not(f.find('中獎發票') >= 0 or f.find('金額') >= 0 or f.find('中獎機率') >= 0):
             if len(num) == 3:
                 num0 = int(num[0]); num1 = num[1]
-                if receiptFile(num0, num1, f):
+                if receiptFile(num0, num1):
+                    os.remove(f)
                     if f.find('未開獎') < 0:
                         ctypes.windll.user32.MessageBoxW(0, f.replace('\n', '').replace('.txt', '') + '的發票已過期', '過期發票', 0)
                     else:
@@ -616,7 +645,7 @@ def updateReceipt():
         receiptMon1 = (mon[2].text).replace('中獎號碼單', '')
         if not(os.path.isfile('{0}.txt'.format(receiptMon))):
             updateReceiptFile("https://invoice.etax.nat.gov.tw/index.html", receiptMon)
-        if not(os.path.isfile('{0}.txt'.format(receiptMon1))):
+        if not(receiptFile(receiptMon1[:3], receiptMon1[4:6])) and not(os.path.isfile('{0}.txt'.format(receiptMon1))):
             updateReceiptFile("https://invoice.etax.nat.gov.tw/lastNumber.html", receiptMon1)
     except:
         ctypes.windll.user32.MessageBoxW(0, '目前無網際網路，無法更新檔案!', '無法更新', 0)
